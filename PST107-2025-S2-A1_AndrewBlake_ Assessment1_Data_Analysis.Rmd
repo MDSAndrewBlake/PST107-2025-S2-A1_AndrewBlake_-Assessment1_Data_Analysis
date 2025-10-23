@@ -1,0 +1,459 @@
+---
+title: "Diabetes Dataset Analysis"
+author: "Andrew Blake"
+date: "2025-10-22"
+output: html_notebook
+---
+
+```{r installPackages}
+# Packages to install for this project
+packages <- c("here", "ggplot2", "dplyr")
+
+# Determine packages that are not installed
+packagesToInstall <- packages[!(packages %in% installed.packages()[,"Package"])]
+
+# Install required packages
+if(length(packagesToInstall) > 0){
+  install.packages(packagesToInstall, dependencies=TRUE)
+}
+
+# Load new packages
+sapply(packages, library, character.only=TRUE)
+```
+
+```{r}
+# Load in dataset
+diabetesDF <- read.csv(here("diabetes_prediction_dataset.csv"), header = TRUE)
+```
+
+```{r}
+MissingValuesCheck <- function(columnData) {
+
+  # Count actual missing values
+  missingValues <- sum(is.na(columnData))
+  
+  # Count common placeholder strings
+  placeholderMissingValues <- sum(columnData %in% c("N/A", "NA", "null", "missing", "Unknown", "unknown", ""))
+  
+  # Return total sum
+  return(missingValues + placeholderMissingValues)
+}
+```
+
+```{r}
+# Check gender columns for unique entries
+unique(diabetesDF$gender)
+
+# Get count of each gender observation
+table(diabetesDF$gender)
+
+# Determine gender densities
+round(prop.table(table(diabetesDF$gender)) * 100, 2)
+
+# "Other" Gender is 0.02%, so is safe to remove, it will not meaningfully contribute to analysis outcomes
+diabetesDF <- subset(diabetesDF, gender %in% c("Male", "Female"))
+
+# Confirm remval success
+table(diabetesDF$gender)
+
+# Check for missing values
+MissingValuesCheck(diabetesDF$gender)
+
+#Results for missing values = 0
+```
+
+```{r}
+# Check age col for biologically impossible or inplausible values (ie less than 0 or greater than 120)
+summary(diabetesDF$age)
+
+# Check for missing values
+MissingValuesCheck(diabetesDF$gender)
+
+#Results for garbage or missing values = 0
+```
+
+```{r}
+# Check hypertension col for non-binary values
+unique(diabetesDF$hypertension)
+
+# Check for missing values
+MissingValuesCheck(diabetesDF$hypertension)
+
+#Results for non-binary or missing values = 0
+```
+
+```{r}
+# Check heart_disease col for non-binary values
+unique(diabetesDF$heart_disease)
+
+# Check for missing values
+MissingValuesCheck(diabetesDF$heart_disease)
+
+# Results for non-binary or missing values = 0
+```
+
+```{r}
+# Check smoking_history col for unique values, looking for unexpected values
+unique(diabetesDF$smoking_history)
+
+# Check for missing values
+MissingValuesCheck(diabetesDF$smoking_history)
+
+# No 'missing' values, but we do have a "No Info" category, so we need to evaluate this features weight in the dataset
+# Get count of each smoking_history observation
+table(diabetesDF$smoking_history)
+
+# No info is approximately 35% of dataset, so too large to ignore. Further observations made in report.
+```
+
+```{r}
+# Check bmi col for biologically impossible or inplausible values (less than 0 or greater than 120)
+summary(diabetesDF$bmi)
+
+# BMI standard deviatio ncheck
+sd(diabetesDF$bmi)
+
+# Check for missing values
+MissingValuesCheck(diabetesDF$bmi)
+
+# No missing values, but some extremities, so need to see counts of implausible values
+```
+
+```{r}
+# Count of underweight observations
+sum(diabetesDF$bmi < 18.5)
+
+# Grouped Observations of individuals lower that 18.5
+underweightObservations <- cut(
+  diabetesDF$bmi,
+  breaks = seq(9.5, 18.5, by = 1),
+  right = FALSE
+)
+table(underweightObservations)
+```
+
+```{r}
+# Count of obese observations
+sum(diabetesDF$bmi > 40)
+```
+
+```{r}
+# Check HbA1c_level col for biologically impossible or inplausible values (less than 6 or greater than 10)
+summary(diabetesDF$HbA1c_level)
+
+# Check for missing values
+MissingValuesCheck(diabetesDF$HbA1c_level)
+
+# No missing values, but, need to investigate values < 6
+```
+
+```{r}
+# Count observations with HbA1c_level < 5
+sum(diabetesDF$HbA1c_level < 5)
+
+# Count observations with HbA1c_level < 4
+sum(diabetesDF$HbA1c_level < 4)
+```
+
+```{r}
+# Check blood_glucose_level col for biologically impossible or inplausible values (less than 55 or greater than 10)
+summary(diabetesDF$blood_glucose_level)
+
+# Check for missing values
+MissingValuesCheck(diabetesDF$blood_glucose_level)
+```
+
+```{r}
+# Count observations with blood_glucose_level > 240
+sum(diabetesDF$blood_glucose_level > 240)
+```
+
+```{r}
+# Check diabetes col for non-binary values
+unique(diabetesDF$diabetes)
+
+# Check for missing values
+MissingValuesCheck(diabetesDF$diabetes)
+
+# Results for non-binary or missing values = 0
+```
+
+```{r}
+plotTheme <- c("#264653", "#287271", "#2a9d8f", "#e9c46a", "#f4a261", "#e76f51")
+```
+
+```{r}
+# Perform count plots to display diabetes frequencies across categorical/binary features
+ggplot(diabetesDF, aes(x = gender, fill = factor(diabetes))) +
+      geom_bar(position = "fill", alpha = 0.75) +
+  scale_fill_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) +
+  labs(title = "Gender Proportions by Diabetes Status",
+       x = "Gender",
+       y = "Proportion",
+       fill = "Diabetes")
+
+ggplot(diabetesDF, aes(x = hypertension, fill = factor(diabetes))) +
+      geom_bar(position = "fill", alpha = 0.75) +
+  scale_fill_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) +
+  labs(title = "Hypertension Proportions by Diabetes Status",
+       x = "Hypertension",
+       y = "Proportion",
+       fill = "Diabetes")
+
+ggplot(diabetesDF, aes(x = heart_disease, fill = factor(diabetes))) +
+      geom_bar(position = "fill", alpha = 0.75)+
+  scale_fill_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) +
+  labs(title = "Heart Disease Proportions by Diabetes Status",
+       x = "Heart Disease",
+       y = "Proportion",
+       fill = "Diabetes")
+
+ggplot(diabetesDF, aes(x = smoking_history, fill = factor(diabetes))) +
+      geom_bar(position = "fill", alpha = 0.75)+
+  scale_fill_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) +
+  labs(title = "Smoking History Proportions by Diabetes Status",
+       x = "Smoking History",
+       y = "Proportion",
+       fill = "Diabetes")
+
+```
+
+```{r}
+# For curiosities sake create new df with simplified smoking status
+smokingStatusDF <- diabetesDF %>%
+  select(smoking_history, diabetes) %>%
+  mutate(
+    smokingStatus = case_when(
+      smoking_history %in% c("current", "former", "not current", "ever") ~ "Ever",
+      smoking_history %in% c("never") ~ "Never",
+      smoking_history %in% c("No Info", "no info", "None") ~ "Unknown"
+    )
+  )
+
+ggplot(smokingStatusDF, aes(x = smokingStatus, fill = factor(diabetes))) +
+      geom_bar(position = "fill", alpha = 0.75)+
+  scale_fill_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) +
+  labs(title = "Simplified Smoking History Proportions by Diabetes Status",
+       x = "Smoking History",
+       y = "Proportion",
+       fill = "Diabetes")
+
+```
+
+```{r}
+ggplot(diabetesDF, aes(x = age, fill = factor(diabetes))) + geom_density(alpha = 0.75) + scale_fill_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) + labs(title = "Age Distribution by Diabetes Status", x = "Age", fill = "Diabetes")
+
+ggplot(diabetesDF, aes(x = bmi, fill = factor(diabetes))) + geom_density(alpha = 0.75) + scale_fill_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) +labs(title = "BMI Distribution by Diabetes Status", x = "BMI", fill = "Diabetes")
+
+ggplot(diabetesDF, aes(x = HbA1c_level, fill = factor(diabetes))) + geom_density(alpha = 0.75) + scale_fill_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) + labs(title = "HbA1c level Distribution by Diabetes Status", x = "HbA1c level", fill = "Diabetes")
+
+ggplot(diabetesDF, aes(x = blood_glucose_level, fill = factor(diabetes))) + geom_density(alpha = 0.75) + scale_fill_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) + labs(title = "Blood Glucose Level Distribution by Diabetes Status", x = "Blood Glucose Level", fill = "Diabetes")
+```
+
+```{r}
+ggplot(diabetesDF, aes(x = factor(diabetes), y = age, fill = factor(diabetes))) +
+  geom_boxplot(alpha = 0.75) +
+  scale_fill_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) +
+  labs(
+    title = "Age Distribution by Diabetes Status",x = "Diabetes",y = "Age", fill = "Diabetes")
+
+ggplot(diabetesDF, aes(x = factor(diabetes), y = bmi, fill = factor(diabetes))) +
+  geom_boxplot(alpha = 0.75) +
+  scale_fill_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) +
+  labs(
+    title = "BMI Distribution by Diabetes Status",x = "Diabetes",y = "BMI", fill = "Diabetes")
+
+ggplot(diabetesDF, aes(x = factor(diabetes), y = HbA1c_level, fill = factor(diabetes))) +
+  geom_boxplot(alpha = 0.75) +
+  scale_fill_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) +
+  labs(
+    title = "HbA1c level Distribution by Diabetes Status",x = "Diabetes",y = "HbA1c level", fill = "Diabetes")
+
+ggplot(diabetesDF, aes(x = factor(diabetes), y = blood_glucose_level, fill = factor(diabetes))) +
+  geom_boxplot(alpha = 0.75) +
+  scale_fill_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) +
+  labs(
+    title = "Blood Glucose Level Distribution by Diabetes Status",x = "Diabetes",y = "Blood Glucose Level", fill = "Diabetes")
+```
+
+```{r}
+# Compare age to other variables
+
+#Age vs Smoking History
+ggplot(diabetesDF, aes(x = smoking_history, y = age, fill = smoking_history)) +
+  geom_boxplot(alpha = 0.75) +
+  scale_fill_manual(values = c("current" = plotTheme[1], "ever" = plotTheme[5], "former" = plotTheme[2], "never" = plotTheme[4], "No Info" = plotTheme[6], "not current" = plotTheme[3])) +
+  labs(
+    title = "Smoking History Distribution by Age",x = "Smoking History",y = "Age", fill = "Smoking History")
+
+# Age vs hypertension
+ggplot(diabetesDF, aes(x = factor(hypertension), y = age, fill = factor(hypertension))) +
+  geom_boxplot(alpha = 0.75) +
+  scale_fill_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) +
+  labs(
+    title = "Hypertension Distribution by Age",x = "Hypertension",y = "Age", fill = "Hypertension")
+
+# Age vs heart disease
+ggplot(diabetesDF, aes(x = factor(heart_disease), y = age, fill = factor(heart_disease))) +
+  geom_boxplot(alpha = 0.75) +
+  scale_fill_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) +
+  labs(
+    title = "Heart Disease Distribution by Age",x = "Heart Disease",y = "Age", fill = "Heart Disease")
+
+# Age vs BMI
+ggplot(diabetesDF, aes(x = age, y = bmi, color = factor(diabetes))) +
+  geom_point(alpha = 0.75) +
+  scale_color_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) +
+  labs(
+    title = "BMI vs Age by Diabetes Status",
+    x = "Age (years)",
+    y = "BMI",
+    color = "Diabetes"
+  )
+```
+
+```{r}
+# Compare gender to other variables
+
+# Gender v Age
+ggplot(diabetesDF, aes(x = gender, y = age, fill = gender)) +
+  geom_boxplot(alpha = 0.75) +
+  scale_fill_manual(values = c("Male" = plotTheme[1], "Female" = plotTheme[6])) +
+  labs(
+    title = "Gender Distribution by Age",x = "Gender",y = "Age", fill = "Gender")
+
+# Gender v BMI
+ggplot(diabetesDF, aes(x = gender, y = bmi, fill = gender)) +
+  geom_boxplot(alpha = 0.75) +
+  scale_fill_manual(values = c("Male" = plotTheme[1], "Female" = plotTheme[6])) +
+  labs(
+    title = "Gender Distribution by BMI",x = "Gender",y = "BMI", fill = "Gender")
+
+# Gender v HbA1c_level
+ggplot(diabetesDF, aes(x = gender, y = HbA1c_level, fill = gender)) +
+  geom_boxplot(alpha = 0.75) +
+  scale_fill_manual(values = c("Male" = plotTheme[1], "Female" = plotTheme[6])) +
+  labs(
+    title = "Gender Distribution by HbA1c_level",x = "Gender",y = "HbA1c_level", fill = "Gender")
+
+# Gender vs Hypertension
+ggplot(diabetesDF, aes(x = gender, fill = factor(hypertension))) +
+      geom_bar(position = "fill", alpha = 0.75)+
+  scale_fill_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) +
+  labs(title = "Gender Proportions by Hypertension",
+       x = "Gender",
+       y = "Proportion",
+       fill = "Hypertension")
+
+# Gender vs Heart Disease
+ggplot(diabetesDF, aes(x = gender, fill = factor(heart_disease))) +
+      geom_bar(position = "fill", alpha = 0.75)+
+  scale_fill_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) +
+  labs(title = "Gender Proportions by Heart Disease",
+       x = "Gender",
+       y = "Proportion",
+       fill = "Heart Disease")
+```
+
+```{r}
+# Compare smoking history to other variables
+
+#Age vs Smoking History
+ggplot(diabetesDF, aes(x = smoking_history, y = bmi, fill = smoking_history)) +
+  geom_boxplot(alpha = 0.75) +
+  scale_fill_manual(values = c("current" = plotTheme[1], "ever" = plotTheme[5], "former" = plotTheme[2], "never" = plotTheme[4], "No Info" = plotTheme[6], "not current" = plotTheme[3])) +
+  labs(
+    title = "Smoking History Distribution by BMI",x = "Smoking History",y = "BMI", fill = "Smoking History")
+
+# Smoking History vs Heart Disease
+ggplot(diabetesDF, aes(x = smoking_history, fill = factor(heart_disease))) +
+      geom_bar(position = "fill", alpha = 0.75)+
+  scale_fill_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) +
+  labs(title = "Smoking History Proportions by Heart Disease",
+       x = "Smoking History",
+       y = "Proportion",
+       fill = "Heart Disease")
+
+# Smoking History vs Hypertension
+ggplot(diabetesDF, aes(x = smoking_history, fill = factor(hypertension))) +
+      geom_bar(position = "fill", alpha = 0.75)+
+  scale_fill_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) +
+  labs(title = "Smoking History Proportions by Hypertension",
+       x = "Smoking History",
+       y = "Proportion",
+       fill = "Hypertension")
+```
+
+```{r}
+# Compare HbA1c vs Blood Glucose Levels
+ggplot(diabetesDF, aes(x = HbA1c_level, y = blood_glucose_level, color = factor(diabetes))) +
+  geom_point(alpha = 0.75) +
+  scale_color_manual(values = c("0" = plotTheme[1], "1" = plotTheme[6])) +
+  labs(
+    title = "HbA1c Level vs Blood Glucose Level by Diabetes Status",
+    x = "HbA1c Level",
+    y = "Average Blood Glucose",
+    color = "Diabetes"
+  )
+```
+
+```{r}
+#Hypothesis 1: Mean BMI differs between diabetics and non-diabetics.
+
+# Summarise BMI feature, split by diabetes status
+bmiSummary <- diabetesDF %>%
+  group_by(diabetes) %>%
+  summarise(
+    n = n(),
+    mean_bmi = mean(bmi),
+    sd_bmi = sd(bmi)
+  )
+
+bmiSummary
+
+# Perform t-test comparing BMI by diabetes status
+bmiTest <- t.test(bmi ~ diabetes, data = diabetesDF)
+bmiTest
+```
+
+```{r}
+#Hypothesis 2: Gender and heart disease are not independent
+
+# Cross-tab Heart Disease counts by gender
+genderVHeartDiseaseCrossTab <- table(diabetesDF$gender, diabetesDF$heart_disease)
+genderVHeartDiseaseCrossTab
+
+# Calculate proportions
+prop.table(genderVHeartDiseaseCrossTab, margin = 1) * 100
+
+# Perform chi-square test
+chisq.test(genderVHeartDiseaseCrossTab)
+```
+
+```{r}
+#Hypothesis 3: Gender and heart disease are not independent
+
+# Cross-tab Heart Disease counts by smoking history
+smokingVHeartDiseaseCrossTab <- table(diabetesDF$smoking_history, diabetesDF$heart_disease)
+smokingVHeartDiseaseCrossTab
+
+# Calculate proportions
+prop.table(smokingVHeartDiseaseCrossTab, margin = 1) * 100
+
+# Perform chi-square test
+chisq.test(smokingVHeartDiseaseCrossTab)
+```
+
+```{r}
+#Hypothesis 4: Heart disease and diabetes are not independent
+
+# Cross-tab Diabetes counts by heart Disease
+diabetesVHeartDiseaseCrossTab <- table(diabetesDF$heart_disease, diabetesDF$diabetes)
+diabetesVHeartDiseaseCrossTab
+
+# Calculate proportions
+prop.table(diabetesVHeartDiseaseCrossTab, margin = 1) * 100
+
+# Perform chi-square test
+chisq.test(diabetesVHeartDiseaseCrossTab)
+```
