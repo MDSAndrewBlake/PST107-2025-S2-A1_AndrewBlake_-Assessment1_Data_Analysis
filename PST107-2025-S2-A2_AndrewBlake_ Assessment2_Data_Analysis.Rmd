@@ -1,0 +1,529 @@
+---
+title: "NZ Melanoma Study"
+author: "Andrew Blake"
+date: "2025-11-13"
+output: html_notebook
+---
+
+## Package Setup
+
+Load in packages required by this R Script
+
+```{r installPackages}
+# Packages to install for this project
+packages <- c("here", "readxl", "ggplot2", "dplyr", "tidyr", "scales")
+
+# Determine packages that are not installed
+packagesToInstall <- packages[!(packages %in% installed.packages()[,"Package"])]
+
+# Install required packages
+if(length(packagesToInstall) > 0){
+  install.packages(packagesToInstall, dependencies=TRUE)
+}
+
+# Load new packages
+sapply(packages, library, character.only=TRUE)
+```
+
+## Load in Raw Datasets
+
+Load in all three datasets for this study
+
+```{r}
+# Load in datasets
+melanomaRawDF <- read.csv(here("melanoma-registration-rates-by-age-group-19962015.csv"), header = TRUE)
+uvIndexRawDF <- read.csv(here("daily-peak-uv-index-value-19812017.csv"), header = TRUE)
+populationRawDF <- read_xlsx(here("estimated-resident-population-2023-base-at-30-june-2023.xlsx"), sheet = "Table 1", skip = 9, col_names = c("year", "pop_males", "pop_females", "pop_total", "pop_increase", "pop_percent_increase", "sex_ratio", "mean_male_pop", "mean_female_pop", "mean_total_pop"))
+```
+
+## Setup Theme
+
+For use in visualisations
+
+```{r}
+# Declare plot theme
+plotTheme <- c("#264653", "#287271", "#2a9d8f", "#e9c46a", "#f4a261", "#e76f51")
+```
+
+## Missing Value Helper
+
+Helper function for doing broad missing value checks, post initial transformations
+
+```{r}
+MissingValuesCheck <- function(columnData) {
+
+  # Count actual missing values
+  missingValues <- sum(is.na(columnData))
+  
+  # Count common placeholder strings
+  placeholderMissingValues <- sum(columnData %in% c("N/A", "NA", "null", "missing", "Unknown", "unknown", ""))
+  
+  # Return total sum
+  return(missingValues + placeholderMissingValues)
+}
+```
+
+## Melanoma Data validation
+
+Check all columns in Melanoma Dataset for valid values then make sure no missing values!
+
+```{r}
+# Check Year column for range of values (make sure no garbage outliers)
+summary(melanomaRawDF$Year)
+
+# Check Gender column for unique entries, ensure only expected values exist
+unique(melanomaRawDF$Gender)
+
+# Check Age_group column for unique entries, ensure only expected values exist
+unique(melanomaRawDF$Age_group)
+
+# Check Registration_rate column for range of values (make sure no garbage outliers)
+summary(melanomaRawDF$Registration_rate)
+```
+
+```{r}
+# Check Year column for missing entries
+MissingValuesCheck(melanomaRawDF$Year)
+
+# Check Gender column for missing entries
+MissingValuesCheck(melanomaRawDF$Gender)
+
+# Check Age_group column for missing entries
+MissingValuesCheck(melanomaRawDF$Age_group)
+
+# Check Registration_rate column for missing entries
+MissingValuesCheck(melanomaRawDF$Registration_rate)
+```
+
+## UVIndex Data validation
+
+Check all columns in UVIndex Dataset for valid values then make sure no missing values!
+
+```{r}
+# Split Date into seperate columns
+uvIndexDF <- tidyr::separate(uvIndexRawDF, Date, into=c("day", "month", "year"), remove=FALSE, convert=TRUE)
+
+# Check Day column for range of values (make sure no garbage outliers)
+summary(uvIndexDF$day)
+
+# Check Month column for range of values (make sure no garbage outliers)
+summary(uvIndexDF$month)
+
+# Check Year column for range of values (make sure no garbage outliers)
+summary(uvIndexDF$year)
+
+# Check DoY column for unique entries, ensure only expected values exist
+summary(uvIndexDF$DoY)
+
+# Check Location column for unique entries, ensure only expected values exist
+unique(uvIndexDF$Location)
+
+# Check Daily_Peak_UVI column for range of values (make sure no garbage outliers)
+summary(uvIndexDF$Daily_peak_UVI)
+```
+
+```{r}
+# Check Date column for missing entries
+MissingValuesCheck(uvIndexDF$Date)
+
+# Check Day column for missing entries
+MissingValuesCheck(uvIndexDF$day)
+
+# Check Month column for missing entries
+MissingValuesCheck(uvIndexDF$month)
+
+# Check Year column for missing entries
+MissingValuesCheck(uvIndexDF$year)
+
+# Check DoY column for missing entries
+MissingValuesCheck(uvIndexDF$DoY)
+
+# Check Location column for missing entries
+MissingValuesCheck(uvIndexDF$Location)
+
+# Check Daily_Peak_UVI column for missing entries
+MissingValuesCheck(uvIndexDF$Daily_peak_UVI)
+```
+
+## Population Data Cleaning
+
+Quick premature cleanup, removing Excel layout rows
+
+```{r}
+# Remove garbage rows (run only once!)
+populationRawDF <- populationRawDF[-(101:115), ]
+populationRawDF <- populationRawDF[-66, ]
+```
+
+```{r}
+# Remove rows outside melanoma dataset date range
+populationRawDF$year <- gsub(" R", "", populationRawDF$year)
+populationRawDF$year <- gsub(" P", "", populationRawDF$year)
+populationRawDF$year <- as.numeric(populationRawDF$year)
+
+```
+
+## Population Data validation
+
+Check all columns in Population Dataset for valid values then make sure no missing values!
+
+```{r}
+# Check year column for range of values (make sure no garbage outliers)
+summary(populationRawDF$year)
+
+# Check pop_males column for range of values (make sure no garbage outliers)
+summary(populationRawDF$pop_males)
+
+# Check pop_females column for range of values (make sure no garbage outliers)
+summary(populationRawDF$pop_females)
+
+# Check pop_total column for unique entries, ensure only expected values exist
+summary(populationRawDF$pop_total)
+
+# Check pop_increase column for unique entries, ensure only expected values exist
+summary(populationRawDF$pop_increase)
+
+# Check pop_percent_increase column for range of values (make sure no garbage outliers)
+summary(populationRawDF$pop_percent_increase)
+
+# Check sex_ratio column for range of values (make sure no garbage outliers)
+summary(populationRawDF$sex_ratio)
+
+# Check mean_male_pop column for unique entries, ensure only expected values exist
+summary(populationRawDF$mean_male_pop)
+
+# Check mean_female_pop column for unique entries, ensure only expected values exist
+summary(populationRawDF$mean_female_pop)
+
+# Check mean_total_pop column for range of values (make sure no garbage outliers)
+summary(populationRawDF$mean_total_pop)
+```
+
+```{r}
+# Check year column for missing entries
+MissingValuesCheck(populationRawDF$year)
+
+# Check pop_males column for missing entries
+MissingValuesCheck(populationRawDF$pop_males)
+
+# Check pop_females column for missing entries
+MissingValuesCheck(populationRawDF$pop_females)
+
+# Check pop_total column for missing entries
+MissingValuesCheck(populationRawDF$pop_total)
+
+# Check pop_increase column for missing entries
+MissingValuesCheck(populationRawDF$pop_increase)
+
+# Check pop_percent_increase column for missing entries
+MissingValuesCheck(populationRawDF$pop_percent_increase)
+
+# Check sex_ratio column for missing entries
+MissingValuesCheck(populationRawDF$sex_ratio)
+
+# Check mean_male_pop column for missing entries
+MissingValuesCheck(populationRawDF$mean_male_pop)
+
+# Check mean_female_pop column for missing entries
+MissingValuesCheck(populationRawDF$mean_female_pop)
+
+# Check mean_total_pop column for missing entries
+MissingValuesCheck(populationRawDF$mean_total_pop)
+```
+
+## Melanoma Dataset Analysis
+
+```{r}
+# Remove 'All' categories to avoid cluttering/duplication
+melanomaDF <- melanomaRawDF %>%
+  filter(Gender != "All", Age_group != "All_ages")
+
+# Set up yearly grouped DF for visualisation
+melanomaYearlyDF <- melanomaDF %>%
+  group_by(Year) %>%
+  summarise(mean_rate = mean(Registration_rate))
+```
+
+```{r}
+# Time series Plot comparing mean melanoma registration rates per year
+ggplot(melanomaYearlyDF, aes(Year, mean_rate)) +
+  geom_line(color = plotTheme[2], size = 1) +
+  geom_point(color = plotTheme[2], size = 2) +
+  labs(title = "Average Melanoma Registration Rate per Year", y = "Mean Registration Rate") +
+  theme_minimal()
+
+# Faceted Line Plot demonstrating melanoma trends by age and gender
+ggplot(melanomaDF, aes(Year, Registration_rate, color = Gender, group = Gender)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  facet_wrap(~ Age_group, scales = "free_y") +
+  scale_color_manual(values = c("Female" = plotTheme[2], "Male"   = plotTheme[5])) +
+  labs(title = "Melanoma Trends by Age and Gender") +
+  theme_minimal()
+
+# Multi-series line plot comparing registration rates over time by gender and age
+ggplot(melanomaDF, aes(x = Year, y = Registration_rate, color = Age_group, linetype = Gender)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  scale_color_manual(values = plotTheme) +
+  labs(
+    title = "Registration Rates Over Time by Age and Gender",
+    x = "Year",
+    y = "Registration Rate",
+    color = "Age Group",
+    linetype = "Gender"
+  ) +
+  scale_x_continuous(breaks = seq(min(melanomaDF$Year), max(melanomaDF$Year), by = 2))
+
+# Melanoma rates by year and age group heatmap
+ggplot(melanomaDF, aes(x = Year, y = Age_group, fill = Registration_rate)) +
+  geom_tile() +
+  scale_fill_gradientn(colours = plotTheme) +
+  labs(title = "Melanoma Rates by Age and Year", y = "Age", fill = "Rate") +
+  theme_minimal()
+
+# Summary tble displaying mean and SD by age group vs gender
+melanomaDF %>%
+  group_by(Age_group, Gender) %>%
+  summarise(
+    mean_rate = mean(Registration_rate),
+    sd_rate = sd(Registration_rate),
+    .groups = "drop"
+  )
+```
+
+## UVIndex Analysis
+
+```{r}
+# Drop DoY column, convert Date field to actual Date type
+uvIndexDF <- uvIndexDF %>%
+  select(-DoY) %>%
+  mutate(
+    Date = as.Date(Date, format = "%d/%m/%Y")
+  )
+```
+
+```{r}
+# Set up annual grouped DF for visualisation
+uvIndexAnnualDF <- uvIndexDF %>%
+  group_by(year, Location) %>%
+  summarise(annual_mean_peak_UVI = mean(Daily_peak_UVI), .groups = "drop")
+
+# Set up monthly grouped DF for visualisation
+uvIndexMonthlyDF <- uvIndexDF %>%
+  group_by(month, Location) %>%
+  summarise(monthly_mean_peak_UVI = mean(Daily_peak_UVI), .groups = "drop")
+```
+
+```{r}
+# Multi-series line plot showinf annual mean trend over time by location
+ggplot(uvIndexAnnualDF, aes(x = year, y = annual_mean_peak_UVI, color = Location, group = Location)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  scale_color_manual(values = plotTheme) +
+  labs(
+    title = "Annual Average Peak UV Index by Location",
+    x = "Year",
+    y = "Annual Mean Peak UVI",
+    color = "Location"
+  ) +
+  theme_minimal()
+
+# Faceted line plot
+ggplot(uvIndexAnnualDF,
+  aes(x = year, y = annual_mean_peak_UVI, color = Location, group = Location)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  scale_color_manual(values = plotTheme) +
+  labs(
+    title = "Annual Average Peak UV Index by Location",
+    x = "Year",
+    y = "Annual Mean Peak UVI"
+  ) +
+  facet_wrap(~ Location, scales = "free_y") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Line Plot demonstrating UV index values throughout the year per location
+ggplot(uvIndexMonthlyDF, aes(x = month, y = monthly_mean_peak_UVI, color = Location, group = Location)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  scale_color_manual(values = plotTheme) +
+  scale_x_continuous(breaks = 1:12) +
+  labs(
+    title = "Monthly Average Peak UV Index by Location",
+    x = "Month",
+    y = "Monthly Mean Peak UVI",
+    color = "Location"
+  ) +
+  theme_minimal()
+
+# Summary tble displaying decade based means, with data organised into buckets 
+uvIndexDecadeDF <- uvIndexDF %>%
+  mutate(
+    decade = case_when(
+      year >= 1980 & year <= 1989 ~ "1980–1989",
+      year >= 1990 & year <= 1999 ~ "1990–1999",
+      year >= 2000 & year <= 2009 ~ "2000–2009",
+      year >= 2010 & year <= 2019 ~ "2010–2019"
+    )
+  ) %>%
+  filter(!is.na(decade)) %>%
+  group_by(Location, decade) %>%
+  summarise( mean_UV = mean(Daily_peak_UVI), .groups = "drop" ) %>%
+  tidyr::pivot_wider( names_from  = decade, values_from = mean_UV ) %>%
+  dplyr::select(
+    Location,
+    `1980–1989`,
+    `1990–1999`,
+    `2000–2009`,
+    `2010–2019`
+  )
+uvIndexDecadeDF
+
+```
+
+## Population Analysis
+
+```{r}
+# Ensure year property is numeric, and not a character
+populationDF <- populationRawDF %>%
+  mutate(year = as.numeric(year))
+
+```
+
+```{r}
+
+# Line plot showing male vs female population over time
+ggplot(populationDF, aes(x = year)) +
+  geom_line(aes(y = pop_males, color = "Males"), size = 1) +
+  geom_line(aes(y = pop_females, color = "Females"), size = 1) +
+  scale_color_manual(values = plotTheme[2:3]) +
+  labs(
+    title = "Male vs Female Population Over Time",
+    x = "Year",
+    y = "Population",
+    color = "Group"
+  ) +
+  theme_minimal()
+
+# Bar chart demonstrating annual population increase
+ggplot(populationDF, aes(x = year, y = pop_increase)) +
+  geom_col(fill = plotTheme[5]) +
+  labs(
+    title = "Annual Population Increase/Decrease",
+    x = "Year",
+    y = "Change in Population"
+  ) +
+  theme_minimal()
+
+# Summary Table
+pop_decade <- populationDF %>%
+  mutate(
+    decade = case_when(
+      year >= 1920 & year <= 1929 ~ "1920–1929",
+      year >= 1930 & year <= 1939 ~ "1930–1939",
+      year >= 1940 & year <= 1949 ~ "1940–1949",
+      year >= 1950 & year <= 1959 ~ "1950–1959",
+      year >= 1960 & year <= 1969 ~ "1960–1969",
+      year >= 1970 & year <= 1979 ~ "1970–1979",
+      year >= 1980 & year <= 1989 ~ "1980–1989",
+      year >= 1990 & year <= 1999 ~ "1990–1999",
+      year >= 2000 & year <= 2009 ~ "2000–2009",
+      year >= 2010 & year <= 2019 ~ "2010–2019"
+    )
+  ) %>%
+  filter(!is.na(decade)) %>%
+  group_by(decade) %>%
+  summarise(
+    mean_pop = mean(pop_total, na.rm = TRUE),
+    mean_male = mean(pop_males, na.rm = TRUE),
+    mean_female = mean(pop_females, na.rm = TRUE)
+  )
+
+pop_decade
+
+```
+
+## Merge three datasets
+
+```{r}
+# Filtered UVI dataframe, from within time period,
+filteredUVI <- uvIndexDF %>%
+  filter(year >= 1996 & year <= 2015) %>%
+  group_by(year) %>%
+  summarise(avg_uvi = mean(Daily_peak_UVI)) 
+  
+# Filtered Population Dataframe, from within time period
+filteredPopulation <- populationDF %>%
+  filter(year >= 1996 & year <= 2015)
+  
+# Filtered Melanoma Dataframe; from within time period
+filteredMelanoma <- melanomaDF %>%
+  rename(year = Year) %>%
+  rename(gender = Gender) %>%
+  rename(age_group = Age_group) %>%
+  rename(registration_rate = Registration_rate) %>%
+  filter(year >= 1996 & year <= 2015)
+
+# Merge all three dataframes
+mergedDF <- filteredMelanoma %>%
+  left_join(filteredUVI, by = "year") %>%
+  left_join(filteredPopulation, by = "year")
+
+
+```
+
+## Visualise merged dataframe
+
+```{r}
+# Normalise values for direct comparison
+scaledDF <- mergedDF %>%
+  mutate(
+    melanoma_scaled = rescale(registration_rate),
+    uv_scaled = rescale(avg_uvi),
+    pop_scaled = rescale(pop_total)
+  )
+
+# Line plot comparing Melanoma, UV Index and Population
+ggplot(scaledDF, aes(x = year)) +
+  geom_line(aes(y = melanoma_scaled, color = "Melanoma"), size = 1.1) +
+  geom_line(aes(y = uv_scaled, color = "UV Index"), size = 1.1) +
+  geom_line(aes(y = pop_scaled, color = "Population"), size = 1.1) +
+  scale_color_manual(values = c(
+    "Melanoma" = plotTheme[2],
+    "UV Index" = plotTheme[3],
+    "Population" = plotTheme[4]
+  )) +
+  labs(title = "Melanoma, UV Index, and Population (Scaled)", y = "Scaled Values", color = "Variable") +
+  theme_minimal()
+
+```
+
+## Inferences
+
+```{r}
+# Hypothesis 1
+earlySample <- mergedDF %>% filter(year >= 1996, year <= 2005) %>% pull(registration_rate)
+lateSample  <- mergedDF %>% filter(year >= 2006, year <= 2015) %>% pull(registration_rate)
+
+t.test(earlySample, lateSample, var.equal = FALSE)
+```
+
+```{r}
+# Hypothesis 2
+maleRates <- mergedDF %>% filter(gender == "Male") %>% pull(registration_rate)
+femaleRates <- mergedDF %>% filter(gender == "Female") %>% pull(registration_rate)
+
+t.test(maleRates, femaleRates, var.equal = FALSE)
+```
+
+```{r}
+# Hypothesis 3
+uvIndexSamples <- mergedDF %>%
+  group_by(year) %>%
+  summarise(mean_uv = mean(avg_uvi), melanoma_rate = mean(registration_rate)) %>%
+  mutate(uv_group = ifelse(mean_uv > median(mean_uv), "High UV", "Low UV"))
+
+t.test(melanoma_rate ~ uv_group, data = uv_groups, var.equal = FALSE)
+```
